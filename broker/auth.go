@@ -1,5 +1,3 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package broker
 
 import (
@@ -11,7 +9,9 @@ import (
 )
 
 const (
+	// PUB acl status
 	PUB = 1
+	// SUB acl status
 	SUB = 2
 )
 
@@ -54,28 +54,30 @@ func (b *Broker) handleFsEvent(event fsnotify.Event) error {
 	return nil
 }
 
+// StartAclWatcher start service if file change
 func (b *Broker) StartAclWatcher() {
 	go func() {
+		log.Debug("Start ACL monitoring")
 		wch, e := fsnotify.NewWatcher()
 		if e != nil {
-			log.Error("start monitor acl config file error,", zap.Error(e))
+			log.Error("Start monitor acl config file error,", zap.Error(e))
 			return
 		}
 		defer wch.Close()
 
 		for _, i := range watchList {
 			if err := wch.Add(i); err != nil {
-				log.Error("start monitor acl config file error,", zap.Error(err))
+				log.Error("Start monitor acl config file error,", zap.Error(err))
 				return
 			}
 		}
-		log.Info("watching acl config file change...")
+		log.Info("Watching acl config file change...")
 		for {
 			select {
 			case evt := <-wch.Events:
 				b.handleFsEvent(evt)
 			case err := <-wch.Errors:
-				log.Error("error:", zap.Error(err))
+				log.Error("Error:", zap.Error(err))
 			}
 		}
 	}()

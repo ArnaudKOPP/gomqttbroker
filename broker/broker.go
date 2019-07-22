@@ -1,5 +1,3 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package broker
 
 import (
@@ -7,7 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" // because i want it
 	"runtime/debug"
 	"sync"
 	"sync/atomic"

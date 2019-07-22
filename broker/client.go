@@ -1,5 +1,3 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package broker
 
 import (
@@ -18,18 +16,21 @@ import (
 )
 
 const (
-	// special pub topic for cluster info BrokerInfoTopic
+	// BrokerInfoTopic special pub topic for cluster info
 	BrokerInfoTopic = "broker000100101info"
 	// CLIENT is an end user.
 	CLIENT = 0
 	// ROUTER is another router in the cluster.
 	ROUTER = 1
 	//REMOTE is the router connect to other cluster
-	REMOTE  = 2
+	REMOTE = 2
+	// CLUSTER router to cluster
 	CLUSTER = 3
 )
 const (
-	Connected    = 1
+	// Connected status
+	Connected = 1
+	// Disconnected status
 	Disconnected = 2
 )
 
@@ -69,11 +70,14 @@ type info struct {
 }
 
 type route struct {
-	remoteID  string
+	// remoteID id of remote
+	remoteID string
+	// remoteUrl url of remote
 	remoteUrl string
 }
 
 var (
+	// DisconnectdPacket Disconnected packet
 	DisconnectdPacket = packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
 )
 
@@ -133,6 +137,7 @@ func (c *client) readLoop() {
 
 }
 
+// ProcessMessage process a message
 func ProcessMessage(msg *Message) {
 	c := msg.client
 	ca := msg.packet
@@ -413,7 +418,7 @@ func (c *client) WriterPacket(packet packets.ControlPacket) error {
 	}
 	if c.conn == nil {
 		c.Close()
-		return errors.New("connect lost ....")
+		return errors.New("connect lost")
 	}
 
 	c.mu.Lock()

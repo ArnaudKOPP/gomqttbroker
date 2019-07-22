@@ -1,5 +1,3 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package broker
 
 import (
@@ -60,6 +58,7 @@ func (c *client) SendConnect() {
 	log.Info("send connect success")
 }
 
+// NewInfo send a publishpacket
 func NewInfo(sid, url string, isforword bool) *packets.PublishPacket {
 	pub := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	pub.Qos = 0

@@ -1,5 +1,3 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package broker
 
 import "github.com/eclipse/paho.mqtt.golang/packets"
