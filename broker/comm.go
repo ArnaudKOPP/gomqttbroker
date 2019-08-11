@@ -89,6 +89,7 @@ func equal(k1, k2 interface{}) bool {
 	return false
 }
 
+// GenUniqueId generate uid
 func GenUniqueId() string {
 	b := make([]byte, 48)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {

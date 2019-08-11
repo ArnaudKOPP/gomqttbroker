@@ -22,15 +22,19 @@ import (
 )
 
 const (
-	MessagePoolNum        = 1024
+	// MessagePoolNum number of message per pool
+	MessagePoolNum = 1024
+	// MessagePoolMessageNum number
 	MessagePoolMessageNum = 1024
 )
 
+// Message struct that contain client & message
 type Message struct {
 	client *client
 	packet packets.ControlPacket
 }
 
+// Broker struct of broker
 type Broker struct {
 	id          string
 	cid         uint64
@@ -50,6 +54,7 @@ type Broker struct {
 	// messagePool []chan *Message
 }
 
+// newMessagePool create a new message pool
 func newMessagePool() []chan *Message {
 	pool := make([]chan *Message, 0)
 	for i := 0; i < MessagePoolNum; i++ {
@@ -59,6 +64,7 @@ func newMessagePool() []chan *Message {
 	return pool
 }
 
+// NewBroker create a new broker
 func NewBroker(config *Config) (*Broker, error) {
 	b := &Broker{
 		id:          GenUniqueId(),
@@ -102,7 +108,8 @@ func NewBroker(config *Config) (*Broker, error) {
 	return b, nil
 }
 
-func (b *Broker) SubmitWork(clientId string, msg *Message) {
+//SubmitWork pass to broker a clientid & message
+func (b *Broker) SubmitWork(clientID string, msg *Message) {
 	if b.wpool == nil {
 		b.wpool = pool.New(b.config.Worker)
 	}
@@ -110,13 +117,14 @@ func (b *Broker) SubmitWork(clientId string, msg *Message) {
 	if msg.client.typ == CLUSTER {
 		b.clusterPool <- msg
 	} else {
-		b.wpool.Submit(clientId, func() {
+		b.wpool.Submit(clientID, func() {
 			ProcessMessage(msg)
 		})
 	}
 
 }
 
+// Start start broker
 func (b *Broker) Start() {
 	if b == nil {
 		log.Error("broker is null")
@@ -164,6 +172,7 @@ func startPProf() {
 	}()
 }
 
+// StateMonitor monitor
 func StateMonitor() {
 	v, _ := mem.VirtualMemory()
 	timeSticker := time.NewTicker(time.Second * 30)
@@ -177,6 +186,7 @@ func StateMonitor() {
 	}
 }
 
+// StartWebsocketListening Start ws
 func (b *Broker) StartWebsocketListening() {
 	path := b.config.WsPath
 	hp := ":" + b.config.WsPort
@@ -194,6 +204,7 @@ func (b *Broker) StartWebsocketListening() {
 	}
 }
 
+// wsHandler WS handler
 func (b *Broker) wsHandler(ws *websocket.Conn) {
 	// io.Copy(ws, ws)
 	atomic.AddUint64(&b.cid, 1)
@@ -201,11 +212,12 @@ func (b *Broker) wsHandler(ws *websocket.Conn) {
 	b.handleConnection(CLIENT, ws)
 }
 
-func (b *Broker) StartClientListening(Tls bool) {
+// StartClientListening start listening client
+func (b *Broker) StartClientListening(TLS bool) {
 	var hp string
 	var err error
 	var l net.Listener
-	if Tls {
+	if TLS {
 		hp = b.config.TlsHost + ":" + b.config.TlsPort
 		l, err = tls.Listen("tcp", hp, b.tlsConfig)
 		log.Info("Start TLS Listening client on ", zap.String("hp", hp))
@@ -242,6 +254,7 @@ func (b *Broker) StartClientListening(Tls bool) {
 	}
 }
 
+// Handshake make handshake in TLS
 func (b *Broker) Handshake(conn net.Conn) bool {
 
 	nc := tls.Server(conn, b.tlsConfig)
@@ -258,6 +271,7 @@ func (b *Broker) Handshake(conn net.Conn) bool {
 
 }
 
+// TlsTimeout check timeout
 func TlsTimeout(conn *tls.Conn) {
 	nc := conn
 	// Check if already closed
@@ -271,8 +285,9 @@ func TlsTimeout(conn *tls.Conn) {
 	}
 }
 
+// StartClusterListening start clustering process
 func (b *Broker) StartClusterListening() {
-	var hp string = b.config.Cluster.Host + ":" + b.config.Cluster.Port
+	var hp = b.config.Cluster.Host + ":" + b.config.Cluster.Port
 	log.Info("Start Listening cluster on ", zap.String("hp", hp))
 
 	l, e := net.Listen("tcp", hp)
@@ -400,6 +415,7 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	c.readLoop()
 }
 
+// ConnectToDiscovery connect to discovery system
 func (b *Broker) ConnectToDiscovery() {
 	var conn net.Conn
 	var err error
@@ -548,6 +564,7 @@ func (b *Broker) checkNodeExist(id, url string) bool {
 	return false
 }
 
+// CheckRemoteExist check if remote exist in remoteID
 func (b *Broker) CheckRemoteExist(remoteID, url string) bool {
 	exist := false
 	b.remotes.Range(func(key, value interface{}) bool {
@@ -564,6 +581,7 @@ func (b *Broker) CheckRemoteExist(remoteID, url string) bool {
 	return exist
 }
 
+// SendLocalSubsToRouter send
 func (b *Broker) SendLocalSubsToRouter(c *client) {
 	subInfo := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
 	b.clients.Range(func(key, value interface{}) bool {
@@ -585,6 +603,7 @@ func (b *Broker) SendLocalSubsToRouter(c *client) {
 	}
 }
 
+// BroadcastInfoMessage send info
 func (b *Broker) BroadcastInfoMessage(remoteID string, msg *packets.PublishPacket) {
 	b.routes.Range(func(key, value interface{}) bool {
 		r, ok := value.(*client)
@@ -600,6 +619,7 @@ func (b *Broker) BroadcastInfoMessage(remoteID string, msg *packets.PublishPacke
 	// log.Info("BroadcastInfoMessage success ")
 }
 
+// BroadcastSubOrUnsubMessage send info
 func (b *Broker) BroadcastSubOrUnsubMessage(packet packets.ControlPacket) {
 
 	b.routes.Range(func(key, value interface{}) bool {
@@ -613,19 +633,20 @@ func (b *Broker) BroadcastSubOrUnsubMessage(packet packets.ControlPacket) {
 }
 
 func (b *Broker) removeClient(c *client) {
-	clientId := string(c.info.clientID)
+	clientID := string(c.info.clientID)
 	typ := c.typ
 	switch typ {
 	case CLIENT:
-		b.clients.Delete(clientId)
+		b.clients.Delete(clientID)
 	case ROUTER:
-		b.routes.Delete(clientId)
+		b.routes.Delete(clientID)
 	case REMOTE:
-		b.remotes.Delete(clientId)
+		b.remotes.Delete(clientID)
 	}
 	// log.Info("delete client ,", clientId)
 }
 
+// PublishMessage publish message
 func (b *Broker) PublishMessage(packet *packets.PublishPacket) {
 	var subs []interface{}
 	var qoss []byte
@@ -648,10 +669,11 @@ func (b *Broker) PublishMessage(packet *packets.PublishPacket) {
 	}
 }
 
+// BroadcastUnSubscribe send message
 func (b *Broker) BroadcastUnSubscribe(subs map[string]*subscription) {
 
 	unsub := packets.NewControlPacket(packets.Unsubscribe).(*packets.UnsubscribePacket)
-	for topic, _ := range subs {
+	for topic := range subs {
 		unsub.Topics = append(unsub.Topics, topic)
 	}
 
@@ -660,6 +682,7 @@ func (b *Broker) BroadcastUnSubscribe(subs map[string]*subscription) {
 	}
 }
 
+// OnlineOfflineNotification send msg
 func (b *Broker) OnlineOfflineNotification(clientID string, online bool) {
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = "$SYS/broker/connection/clients/" + clientID
