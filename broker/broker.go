@@ -168,7 +168,8 @@ func (b *Broker) Start() {
 
 func startPProf() {
 	go func() {
-		http.ListenAndServe(":10060", nil)
+		log.Debug("Start PProf at : http://localhost:6060/debug/pprof/ ")
+		http.ListenAndServe(":6060", nil)
 	}()
 }
 

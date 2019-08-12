@@ -7,6 +7,7 @@ copyright notice and this permission notice appear in all copies.
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,6 +17,17 @@ import (
 )
 
 func main() {
+	message := `Welcome to 
+  _____       __  __  ____ _______ _______ ____            _             
+ / ____|     |  \/  |/ __ \__   __|__   __|  _ \          | |            
+| |  __  ___ | \  / | |  | | | |     | |  | |_) |_ __ ___ | | _____ _ __ 
+| | |_ |/ _ \| |\/| | |  | | | |     | |  |  _ <| '__/ _ \| |/ / _ \ '__|
+| |__| | (_) | |  | | |__| | | |     | |  | |_) | | | (_) |   <  __/ |   
+ \_____|\___/|_|  |_|\___\_\ |_|     |_|  |____/|_|  \___/|_|\_\___|_| 
+ !!!! WIP !!!!
+`
+
+	fmt.Printf("%s", message)
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	config, err := broker.ConfigureConfig(os.Args[1:])
 	if err != nil {

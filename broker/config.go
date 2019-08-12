@@ -88,8 +88,6 @@ func ConfigureConfig(args []string) (*Config, error) {
 	fs.BoolVar(&config.Debug, "debug", false, "enable Debug logging.")
 	fs.BoolVar(&config.Debug, "d", false, "enable Debug logging.")
 
-	fs.Bool("D", true, "enable Debug logging.")
-
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
