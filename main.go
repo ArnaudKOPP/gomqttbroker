@@ -18,15 +18,16 @@ func main() {
 | | |_ |/ _ \| |\/| | |  | | | |     | |  |  _ <| '__/ _ \| |/ / _ \ '__|
 | |__| | (_) | |  | | |__| | | |     | |  | |_) | | | (_) |   <  __/ |   
  \_____|\___/|_|  |_|\___\_\ |_|     |_|  |____/|_|  \___/|_|\_\___|_| 
- !!!! WIP !!!!
-`
 
-	fmt.Printf("%s", message)
+`
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	config, err := broker.ConfigureConfig(os.Args[1:])
 	if err != nil {
 		log.Fatal("configure broker config error: ", err)
 	}
+
+	fmt.Printf("%s", message)
+	fmt.Printf("%+v\n", config)
 
 	b, err := broker.NewBroker(config)
 	if err != nil {

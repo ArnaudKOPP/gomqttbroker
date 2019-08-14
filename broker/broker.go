@@ -412,7 +412,7 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	}
 
 	// mpool := b.messagePool[fnv1a.HashString64(cid)%MessagePoolNum]
-
+	// right now, its to client to handle incoming packet
 	c.readLoop()
 }
 

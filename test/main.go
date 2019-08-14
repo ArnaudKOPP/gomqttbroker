@@ -18,7 +18,7 @@ func main() {
 	mqtt.DEBUG = log.New(os.Stdout, "", 0)
 	mqtt.ERROR = log.New(os.Stdout, "", 0)
 	// tcp://127.0.0.1:1883
-	opts := mqtt.NewClientOptions().AddBroker("tcp://broker.hivemq.com:1883").SetClientID("TrivialTest")
+	opts := mqtt.NewClientOptions().AddBroker("tcp://127.0.0.1:1883").SetClientID("TrivialTest")
 	opts.SetKeepAlive(2 * time.Second)
 	opts.SetDefaultPublishHandler(f)
 	opts.SetPingTimeout(1 * time.Second)
@@ -32,7 +32,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 1; i++ {
 		text := fmt.Sprintf("this is msg #%d!", i)
 		token := c.Publish("go-mqtt/sample", 0, false, text)
 		token.Wait()

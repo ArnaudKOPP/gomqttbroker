@@ -113,6 +113,11 @@ func (c *client) readLoop() {
 
 			packet, err := packets.ReadPacket(nc)
 			if err != nil {
+				if err.Error() == "EOF" {
+					log.Warn("Get EOF error:", zap.Error(err))
+					return
+				}
+
 				log.Error("read packet error: ", zap.Error(err), zap.String("ClientID", c.info.clientID))
 				msg := &Message{client: c, packet: DisconnectdPacket}
 				b.SubmitWork(c.info.clientID, msg)
