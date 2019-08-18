@@ -16,7 +16,7 @@ const (
 )
 
 func (c *client) CheckTopicAuth(typ int, topic string) bool {
-	if c.typ != CLIENT || !c.broker.config.Acl {
+	if c.typ != CLIENT || !c.broker.config.ACL {
 		return true
 	}
 	if strings.HasPrefix(topic, "$queue/") {
@@ -28,7 +28,7 @@ func (c *client) CheckTopicAuth(typ int, topic string) bool {
 	ip := c.info.remoteIP
 	username := string(c.info.username)
 	clientid := string(c.info.clientID)
-	aclInfo := c.broker.AclConfig
+	aclInfo := c.broker.ACLConfig
 	return acl.CheckTopicAuth(aclInfo, typ, ip, username, clientid, topic)
 
 }
@@ -39,7 +39,7 @@ var (
 
 func (b *Broker) handleFsEvent(event fsnotify.Event) error {
 	switch event.Name {
-	case b.config.AclConf:
+	case b.config.ACLConf:
 		if event.Op&fsnotify.Write == fsnotify.Write ||
 			event.Op&fsnotify.Create == fsnotify.Create {
 			log.Info("text:handling acl config change event:", zap.String("filename", event.Name))
@@ -48,14 +48,14 @@ func (b *Broker) handleFsEvent(event fsnotify.Event) error {
 				log.Error("aclconfig change failed, load acl conf error: ", zap.Error(err))
 				return err
 			}
-			b.AclConfig = aclconfig
+			b.ACLConfig = aclconfig
 		}
 	}
 	return nil
 }
 
-// StartAclWatcher start service if file change
-func (b *Broker) StartAclWatcher() {
+// StartACLWatcher start service if file change
+func (b *Broker) StartACLWatcher() {
 	go func() {
 		log.Debug("Start ACL monitoring")
 		wch, e := fsnotify.NewWatcher()

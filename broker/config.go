@@ -14,28 +14,31 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config hold config parameters json fmt
 type Config struct {
 	Worker  int       `json:"workerNum"`
 	Host    string    `json:"host"`
 	Port    string    `json:"port"`
 	Cluster RouteInfo `json:"cluster"`
 	Router  string    `json:"router"`
-	TlsHost string    `json:"tlsHost"`
-	TlsPort string    `json:"tlsPort"`
+	TLSHost string    `json:"tlsHost"`
+	TLSPort string    `json:"tlsPort"`
 	WsPath  string    `json:"wsPath"`
 	WsPort  string    `json:"wsPort"`
 	WsTLS   bool      `json:"wsTLS"`
-	TlsInfo TLSInfo   `json:"tlsInfo"`
-	Acl     bool      `json:"acl"`
-	AclConf string    `json:"aclConf"`
+	TLSInfo TLSInfo   `json:"tlsInfo"`
+	ACL     bool      `json:"acl"`
+	ACLConf string    `json:"aclConf"`
 	Debug   bool      `json:"-"`
 }
 
+// RouteInfo struct hold route info
 type RouteInfo struct {
 	Host string `json:"host"`
 	Port string `json:"port"`
 }
 
+// TLSInfo struct hold TLS info
 type TLSInfo struct {
 	Verify   bool   `json:"verify"`
 	CaFile   string `json:"caFile"`
@@ -43,11 +46,12 @@ type TLSInfo struct {
 	KeyFile  string `json:"keyFile"`
 }
 
-var DefaultConfig *Config = &Config{
+// DefaultConfig create default config
+var DefaultConfig = &Config{
 	Worker: 4096,
 	Host:   "0.0.0.0",
 	Port:   "1883",
-	Acl:    false,
+	ACL:    false,
 }
 
 var (
@@ -59,6 +63,7 @@ func showHelp() {
 	os.Exit(0)
 }
 
+// ConfigureConfig create config
 func ConfigureConfig(args []string) (*Config, error) {
 	config := &Config{}
 	var (
@@ -111,9 +116,8 @@ func ConfigureConfig(args []string) (*Config, error) {
 		tmpConfig, e := LoadConfig(configFile)
 		if e != nil {
 			return nil, e
-		} else {
-			config = tmpConfig
 		}
+		config = tmpConfig
 	}
 
 	if err := config.check(); err != nil {
@@ -124,6 +128,7 @@ func ConfigureConfig(args []string) (*Config, error) {
 
 }
 
+// LoadConfig load from string(filename) and return a config
 func LoadConfig(filename string) (*Config, error) {
 
 	content, err := ioutil.ReadFile(filename)
@@ -166,18 +171,19 @@ func (config *Config) check() error {
 		}
 	}
 
-	if config.TlsPort != "" {
-		if config.TlsInfo.CertFile == "" || config.TlsInfo.KeyFile == "" {
+	if config.TLSPort != "" {
+		if config.TLSInfo.CertFile == "" || config.TLSInfo.KeyFile == "" {
 			log.Error("tls config error, no cert or key file.")
-			return errors.New("tls config error, no cert or key file.")
+			return errors.New("tls config error, no cert or key file")
 		}
-		if config.TlsHost == "" {
-			config.TlsHost = "0.0.0.0"
+		if config.TLSHost == "" {
+			config.TLSHost = "0.0.0.0"
 		}
 	}
 	return nil
 }
 
+// NewTLSConfig create TLS config from TLS info
 func NewTLSConfig(tlsInfo TLSInfo) (*tls.Config, error) {
 
 	cert, err := tls.LoadX509KeyPair(tlsInfo.CertFile, tlsInfo.KeyFile)

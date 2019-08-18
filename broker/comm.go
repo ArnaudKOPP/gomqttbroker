@@ -11,36 +11,54 @@ import (
 )
 
 const (
-	// ACCEPT_MIN_SLEEP is the minimum acceptable sleep times on temporary errors.
-	ACCEPT_MIN_SLEEP = 100 * time.Millisecond
-	// ACCEPT_MAX_SLEEP is the maximum acceptable sleep times on temporary errors
-	ACCEPT_MAX_SLEEP = 10 * time.Second
-	// DEFAULT_ROUTE_CONNECT Route solicitation intervals.
-	DEFAULT_ROUTE_CONNECT = 5 * time.Second
-	// DEFAULT_TLS_TIMEOUT
-	DEFAULT_TLS_TIMEOUT = 5 * time.Second
+	// AcceptMinSleep is the minimum acceptable sleep times on temporary errors.
+	AcceptMinSleep = 100 * time.Millisecond
+	// AcceptMaxSleep is the maximum acceptable sleep times on temporary errors
+	AcceptMaxSleep = 10 * time.Second
+	// DefaultRouteConnect Route solicitation intervals.
+	DefaultRouteConnect = 5 * time.Second
+	// DefaultTLSTimeout timeout of tls
+	DefaultTLSTimeout = 5 * time.Second
 )
 
 const (
+	// CONNECT 1
 	CONNECT = uint8(iota + 1)
+	// CONNACK 2
 	CONNACK
+	// PUBLISH 3
 	PUBLISH
+	// PUBACK 4
 	PUBACK
+	// PUBREC 5
 	PUBREC
+	// PUBREL 6
 	PUBREL
+	// PUBCOMP 7
 	PUBCOMP
+	// SUBSCRIBE 8
 	SUBSCRIBE
+	// SUBACK 9
 	SUBACK
+	// UNSUBSCRIBE 10
 	UNSUBSCRIBE
+	// UNSUBACK 11
 	UNSUBACK
+	// PINGREQ 12
 	PINGREQ
+	// PINGRESP 13
 	PINGRESP
+	// DISCONNECT 14
 	DISCONNECT
 )
 const (
+	// QosAtMostOnce 0
 	QosAtMostOnce byte = iota
+	// QosAtLeastOnce 1
 	QosAtLeastOnce
+	// QosExactlyOnce 2
 	QosExactlyOnce
+	// QosFailure fail value
 	QosFailure = 0x80
 )
 
@@ -89,8 +107,8 @@ func equal(k1, k2 interface{}) bool {
 	return false
 }
 
-// GenUniqueId generate uid
-func GenUniqueId() string {
+// GenUniqueID generate uid
+func GenUniqueID() string {
 	b := make([]byte, 48)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return ""

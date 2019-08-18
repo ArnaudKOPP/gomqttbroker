@@ -72,8 +72,8 @@ type info struct {
 type route struct {
 	// remoteID id of remote
 	remoteID string
-	// remoteUrl url of remote
-	remoteUrl string
+	// remoteURL url of remote
+	remoteURL string
 }
 
 var (
@@ -408,7 +408,7 @@ func (c *client) Close() {
 
 		//do reconnect
 		if c.typ == REMOTE {
-			go b.connectRouter(c.route.remoteID, c.route.remoteUrl)
+			go b.connectRouter(c.route.remoteID, c.route.remoteURL)
 		}
 	}
 }

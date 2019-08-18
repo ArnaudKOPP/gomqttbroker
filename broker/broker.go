@@ -41,7 +41,7 @@ type Broker struct {
 	mu          sync.Mutex
 	config      *Config
 	tlsConfig   *tls.Config
-	AclConfig   *acl.ACLConfig
+	ACLConfig   *acl.ACLConfig
 	wpool       *pool.WorkerPool
 	clients     sync.Map
 	routes      sync.Map
@@ -67,7 +67,7 @@ func newMessagePool() []chan *Message {
 // NewBroker create a new broker
 func NewBroker(config *Config) (*Broker, error) {
 	b := &Broker{
-		id:          GenUniqueId(),
+		id:          GenUniqueID(),
 		config:      config,
 		wpool:       pool.New(config.Worker),
 		nodes:       make(map[string]interface{}),
@@ -88,22 +88,22 @@ func NewBroker(config *Config) (*Broker, error) {
 		return nil, err
 	}
 
-	if b.config.TlsPort != "" {
-		tlsconfig, err := NewTLSConfig(b.config.TlsInfo)
+	if b.config.TLSPort != "" {
+		tlsconfig, err := NewTLSConfig(b.config.TLSInfo)
 		if err != nil {
 			log.Error("new tlsConfig error", zap.Error(err))
 			return nil, err
 		}
 		b.tlsConfig = tlsconfig
 	}
-	if b.config.Acl {
-		aclconfig, err := acl.AclConfigLoad(b.config.AclConf)
+	if b.config.ACL {
+		aclconfig, err := acl.AclConfigLoad(b.config.ACLConf)
 		if err != nil {
 			log.Error("Load acl conf error", zap.Error(err))
 			return nil, err
 		}
-		b.AclConfig = aclconfig
-		b.StartAclWatcher()
+		b.ACLConfig = aclconfig
+		b.StartACLWatcher()
 	}
 	return b, nil
 }
@@ -147,7 +147,7 @@ func (b *Broker) Start() {
 	}
 
 	//listen client over tls
-	if b.config.TlsPort != "" {
+	if b.config.TLSPort != "" {
 		go b.StartClientListening(true)
 	}
 
@@ -195,7 +195,7 @@ func (b *Broker) StartWebsocketListening() {
 	http.Handle(path, websocket.Handler(b.wsHandler))
 	var err error
 	if b.config.WsTLS {
-		err = http.ListenAndServeTLS(hp, b.config.TlsInfo.CertFile, b.config.TlsInfo.KeyFile, nil)
+		err = http.ListenAndServeTLS(hp, b.config.TLSInfo.CertFile, b.config.TLSInfo.KeyFile, nil)
 	} else {
 		err = http.ListenAndServe(hp, nil)
 	}
@@ -219,7 +219,7 @@ func (b *Broker) StartClientListening(TLS bool) {
 	var err error
 	var l net.Listener
 	if TLS {
-		hp = b.config.TlsHost + ":" + b.config.TlsPort
+		hp = b.config.TLSHost + ":" + b.config.TLSPort
 		l, err = tls.Listen("tcp", hp, b.tlsConfig)
 		log.Info("Start TLS Listening client on ", zap.String("hp", hp))
 	} else {
@@ -231,7 +231,7 @@ func (b *Broker) StartClientListening(TLS bool) {
 		log.Error("Error listening on ", zap.Error(err))
 		return
 	}
-	tmpDelay := 10 * ACCEPT_MIN_SLEEP
+	tmpDelay := 10 * AcceptMinSleep
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -240,15 +240,15 @@ func (b *Broker) StartClientListening(TLS bool) {
 					zap.Error(ne), zap.Duration("sleeping", tmpDelay/time.Millisecond))
 				time.Sleep(tmpDelay)
 				tmpDelay *= 2
-				if tmpDelay > ACCEPT_MAX_SLEEP {
-					tmpDelay = ACCEPT_MAX_SLEEP
+				if tmpDelay > AcceptMaxSleep {
+					tmpDelay = AcceptMaxSleep
 				}
 			} else {
 				log.Error("Accept error: %v", zap.Error(err))
 			}
 			continue
 		}
-		tmpDelay = ACCEPT_MIN_SLEEP
+		tmpDelay = AcceptMinSleep
 		atomic.AddUint64(&b.cid, 1)
 		go b.handleConnection(CLIENT, conn)
 
@@ -259,8 +259,8 @@ func (b *Broker) StartClientListening(TLS bool) {
 func (b *Broker) Handshake(conn net.Conn) bool {
 
 	nc := tls.Server(conn, b.tlsConfig)
-	time.AfterFunc(DEFAULT_TLS_TIMEOUT, func() { TlsTimeout(nc) })
-	nc.SetReadDeadline(time.Now().Add(DEFAULT_TLS_TIMEOUT))
+	time.AfterFunc(DefaultTLSTimeout, func() { TLSTimeout(nc) })
+	nc.SetReadDeadline(time.Now().Add(DefaultTLSTimeout))
 
 	// Force handshake
 	if err := nc.Handshake(); err != nil {
@@ -272,8 +272,8 @@ func (b *Broker) Handshake(conn net.Conn) bool {
 
 }
 
-// TlsTimeout check timeout
-func TlsTimeout(conn *tls.Conn) {
+// TLSTimeout check timeout
+func TLSTimeout(conn *tls.Conn) {
 	nc := conn
 	// Check if already closed
 	if nc == nil {
@@ -297,7 +297,7 @@ func (b *Broker) StartClusterListening() {
 		return
 	}
 
-	tmpDelay := 10 * ACCEPT_MIN_SLEEP
+	tmpDelay := 10 * AcceptMinSleep
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -306,15 +306,15 @@ func (b *Broker) StartClusterListening() {
 					zap.Error(ne), zap.Duration("sleeping", tmpDelay/time.Millisecond))
 				time.Sleep(tmpDelay)
 				tmpDelay *= 2
-				if tmpDelay > ACCEPT_MAX_SLEEP {
-					tmpDelay = ACCEPT_MAX_SLEEP
+				if tmpDelay > AcceptMaxSleep {
+					tmpDelay = AcceptMaxSleep
 				}
 			} else {
 				log.Error("Accept error: %v", zap.Error(err))
 			}
 			continue
 		}
-		tmpDelay = ACCEPT_MIN_SLEEP
+		tmpDelay = AcceptMinSleep
 
 		go b.handleConnection(ROUTER, conn)
 	}
@@ -420,7 +420,7 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 func (b *Broker) ConnectToDiscovery() {
 	var conn net.Conn
 	var err error
-	var tempDelay time.Duration = 0
+	var tempDelay time.Duration
 	for {
 		conn, err = net.Dial("tcp", b.config.Router)
 		if err != nil {
@@ -480,7 +480,7 @@ func (b *Broker) processClusterInfo() {
 func (b *Broker) connectRouter(id, addr string) {
 	var conn net.Conn
 	var err error
-	var timeDelay time.Duration = 0
+	var timeDelay time.Duration
 	retryTimes := 0
 	max := 32 * time.Second
 	for {
@@ -516,9 +516,9 @@ func (b *Broker) connectRouter(id, addr string) {
 	}
 	route := route{
 		remoteID:  id,
-		remoteUrl: addr,
+		remoteURL: addr,
 	}
-	cid := GenUniqueId()
+	cid := GenUniqueID()
 
 	info := info{
 		clientID:  cid,
@@ -571,7 +571,7 @@ func (b *Broker) CheckRemoteExist(remoteID, url string) bool {
 	b.remotes.Range(func(key, value interface{}) bool {
 		v, ok := value.(*client)
 		if ok {
-			if v.route.remoteUrl == url {
+			if v.route.remoteURL == url {
 				v.route.remoteID = remoteID
 				exist = true
 				return false
