@@ -1,9 +1,9 @@
-Free and High Performance MQTT Broker 
+Free and High Performance MQTT Broker, create for my educational purposes.
 ============
 
 ## About
 Golang MQTT Broker, Version 3.1.1, and Compatible
-for [eclipse paho client](https://github.com/eclipse?utf8=%E2%9C%93&q=mqtt&type=&language=) and mosquitto-client
+for [eclipse paho client](https://github.com/eclipse?utf8=%E2%9C%93&q=mqtt&type=&language=)
 
 
 ## RUNNING
@@ -36,7 +36,6 @@ Common Options:
 	"workerNum": 4096,
 	"port": "1883",
 	"host": "0.0.0.0",
-	"router": "127.0.0.1:9888",
 	"wsPort": "1888",
 	"wsPath": "/ws",
 	"wsTLS": true,
