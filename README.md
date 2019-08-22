@@ -26,10 +26,6 @@ Broker Options:
 Logging Options:
     -d, --debug <bool>                Enable debugging output (default false)
 
-Cluster Options:
-    -r,  --router  <rurl>             Router who maintenance cluster info
-    -cp, --clusterport <cluster-port> Cluster listen port for others
-
 Common Options:
     -h, --help                        Show this message
 ~~~
@@ -40,10 +36,6 @@ Common Options:
 	"workerNum": 4096,
 	"port": "1883",
 	"host": "0.0.0.0",
-	"cluster": {
-		"host": "0.0.0.0",
-		"port": "1993"
-	},
 	"router": "127.0.0.1:9888",
 	"wsPort": "1888",
 	"wsPath": "/ws",
@@ -65,8 +57,6 @@ Common Options:
 
 * Supports QOS 0 and 1
 
-* Cluster Support
-
 * Containerization
 
 * Supports retained messages
@@ -78,15 +68,6 @@ Common Options:
 * TLS/SSL Support
 
 * Flexible  ACL
-
-### Cluster
-```bash
- 1, start router for broker  (
- 	$ cd router
- 	$ go run main.go
- 2, config router in Broker.config  ("router": "127.0.0.1:9888")
- 
-```
 
 ### ACL Configure
 #### The ACL rules define:

@@ -14,10 +14,6 @@ Broker Options:
 Logging Options:
     -d, --debug <bool>                Enable debugging output (default false)
 
-Cluster Options:
-    -r,  --router  <rurl>             Router who maintenance cluster info
-    -cp, --clusterport <cluster-port> Cluster listen port for others
-
 Common Options:
     -h, --help                        Show this message
 `

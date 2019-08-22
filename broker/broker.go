@@ -36,21 +36,18 @@ type Message struct {
 
 // Broker struct of broker
 type Broker struct {
-	id          string
-	cid         uint64
-	mu          sync.Mutex
-	config      *Config
-	tlsConfig   *tls.Config
-	ACLConfig   *acl.ACLConfig
-	wpool       *pool.WorkerPool
-	clients     sync.Map
-	routes      sync.Map
-	remotes     sync.Map
-	nodes       map[string]interface{}
-	clusterPool chan *Message
-	queues      map[string]int
-	topicsMgr   *topics.Manager
-	sessionMgr  *sessions.Manager
+	id         string
+	cid        uint64
+	mu         sync.Mutex
+	config     *Config
+	tlsConfig  *tls.Config
+	ACLConfig  *acl.Config
+	wpool      *pool.WorkerPool
+	clients    sync.Map
+	nodes      map[string]interface{}
+	queues     map[string]int
+	topicsMgr  *topics.Manager
+	sessionMgr *sessions.Manager
 	// messagePool []chan *Message
 }
 
@@ -67,12 +64,11 @@ func newMessagePool() []chan *Message {
 // NewBroker create a new broker
 func NewBroker(config *Config) (*Broker, error) {
 	b := &Broker{
-		id:          GenUniqueID(),
-		config:      config,
-		wpool:       pool.New(config.Worker),
-		nodes:       make(map[string]interface{}),
-		queues:      make(map[string]int),
-		clusterPool: make(chan *Message),
+		id:     GenUniqueID(),
+		config: config,
+		wpool:  pool.New(config.Worker),
+		nodes:  make(map[string]interface{}),
+		queues: make(map[string]int),
 	}
 
 	var err error
@@ -97,7 +93,7 @@ func NewBroker(config *Config) (*Broker, error) {
 		b.tlsConfig = tlsconfig
 	}
 	if b.config.ACL {
-		aclconfig, err := acl.AclConfigLoad(b.config.ACLConf)
+		aclconfig, err := acl.ConfigLoad(b.config.ACLConf)
 		if err != nil {
 			log.Error("Load acl conf error", zap.Error(err))
 			return nil, err
@@ -114,13 +110,9 @@ func (b *Broker) SubmitWork(clientID string, msg *Message) {
 		b.wpool = pool.New(b.config.Worker)
 	}
 
-	if msg.client.typ == CLUSTER {
-		b.clusterPool <- msg
-	} else {
-		b.wpool.Submit(clientID, func() {
-			ProcessMessage(msg)
-		})
-	}
+	b.wpool.Submit(clientID, func() {
+		ProcessMessage(msg)
+	})
 
 }
 
@@ -136,11 +128,6 @@ func (b *Broker) Start() {
 		go b.StartClientListening(false)
 	}
 
-	//listen for cluster
-	if b.config.Cluster.Port != "" {
-		go b.StartClusterListening()
-	}
-
 	//listen for websocket
 	if b.config.WsPort != "" {
 		go b.StartWebsocketListening()
@@ -149,12 +136,6 @@ func (b *Broker) Start() {
 	//listen client over tls
 	if b.config.TLSPort != "" {
 		go b.StartClientListening(true)
-	}
-
-	//connect on other node in cluster
-	if b.config.Router != "" {
-		go b.processClusterInfo()
-		b.ConnectToDiscovery()
 	}
 
 	//system monitor
@@ -286,40 +267,6 @@ func TLSTimeout(conn *tls.Conn) {
 	}
 }
 
-// StartClusterListening start clustering process
-func (b *Broker) StartClusterListening() {
-	var hp = b.config.Cluster.Host + ":" + b.config.Cluster.Port
-	log.Info("Start Listening cluster on ", zap.String("hp", hp))
-
-	l, e := net.Listen("tcp", hp)
-	if e != nil {
-		log.Error("Error listening on ", zap.Error(e))
-		return
-	}
-
-	tmpDelay := 10 * AcceptMinSleep
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
-				log.Error("Temporary Client Accept Error(%v), sleeping %dms",
-					zap.Error(ne), zap.Duration("sleeping", tmpDelay/time.Millisecond))
-				time.Sleep(tmpDelay)
-				tmpDelay *= 2
-				if tmpDelay > AcceptMaxSleep {
-					tmpDelay = AcceptMaxSleep
-				}
-			} else {
-				log.Error("Accept error: %v", zap.Error(err))
-			}
-			continue
-		}
-		tmpDelay = AcceptMinSleep
-
-		go b.handleConnection(ROUTER, conn)
-	}
-}
-
 func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	//process connect packet
 	packet, err := packets.ReadPacket(conn)
@@ -367,7 +314,6 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	}
 
 	c := &client{
-		typ:    typ,
 		broker: b,
 		conn:   conn,
 		info:   info,
@@ -386,200 +332,21 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	var exist bool
 	var old interface{}
 
-	switch typ {
-	case CLIENT:
-		old, exist = b.clients.Load(cid)
-		if exist {
-			log.Warn("client exist, close old...", zap.String("clientID", c.info.clientID))
-			ol, ok := old.(*client)
-			if ok {
-				ol.Close()
-			}
+	old, exist = b.clients.Load(cid)
+	if exist {
+		log.Warn("client exist, close old...", zap.String("clientID", c.info.clientID))
+		ol, ok := old.(*client)
+		if ok {
+			ol.Close()
 		}
-		b.clients.Store(cid, c)
-
-		b.OnlineOfflineNotification(cid, true)
-	case ROUTER:
-		old, exist = b.routes.Load(cid)
-		if exist {
-			log.Warn("router exist, close old...")
-			ol, ok := old.(*client)
-			if ok {
-				ol.Close()
-			}
-		}
-		b.routes.Store(cid, c)
 	}
+	b.clients.Store(cid, c)
+
+	b.OnlineOfflineNotification(cid, true)
 
 	// mpool := b.messagePool[fnv1a.HashString64(cid)%MessagePoolNum]
 	// right now, its to client to handle incoming packet
 	c.readLoop()
-}
-
-// ConnectToDiscovery connect to discovery system
-func (b *Broker) ConnectToDiscovery() {
-	var conn net.Conn
-	var err error
-	var tempDelay time.Duration
-	for {
-		conn, err = net.Dial("tcp", b.config.Router)
-		if err != nil {
-			log.Error("Error trying to connect to route: ", zap.Error(err))
-			log.Debug("Connect to route timeout ,retry...")
-
-			if 0 == tempDelay {
-				tempDelay = 1 * time.Second
-			} else {
-				tempDelay *= 2
-			}
-
-			if max := 20 * time.Second; tempDelay > max {
-				tempDelay = max
-			}
-			time.Sleep(tempDelay)
-			continue
-		}
-		break
-	}
-	log.Debug("connect to router success :", zap.String("Router", b.config.Router))
-
-	cid := b.id
-	info := info{
-		clientID:  cid,
-		keepalive: 60,
-	}
-
-	c := &client{
-		typ:    CLUSTER,
-		broker: b,
-		conn:   conn,
-		info:   info,
-	}
-
-	c.init()
-
-	c.SendConnect()
-	c.SendInfo()
-
-	go c.readLoop()
-	go c.StartPing()
-}
-
-func (b *Broker) processClusterInfo() {
-	for {
-		msg, ok := <-b.clusterPool
-		if !ok {
-			log.Error("read message from cluster channel error")
-			return
-		}
-		ProcessMessage(msg)
-	}
-
-}
-
-func (b *Broker) connectRouter(id, addr string) {
-	var conn net.Conn
-	var err error
-	var timeDelay time.Duration
-	retryTimes := 0
-	max := 32 * time.Second
-	for {
-
-		if !b.checkNodeExist(id, addr) {
-			return
-		}
-
-		conn, err = net.Dial("tcp", addr)
-		if err != nil {
-			log.Error("Error trying to connect to route: ", zap.Error(err))
-
-			if retryTimes > 50 {
-				return
-			}
-
-			log.Debug("Connect to route timeout ,retry...")
-
-			if 0 == timeDelay {
-				timeDelay = 1 * time.Second
-			} else {
-				timeDelay *= 2
-			}
-
-			if timeDelay > max {
-				timeDelay = max
-			}
-			time.Sleep(timeDelay)
-			retryTimes++
-			continue
-		}
-		break
-	}
-	route := route{
-		remoteID:  id,
-		remoteURL: addr,
-	}
-	cid := GenUniqueID()
-
-	info := info{
-		clientID:  cid,
-		keepalive: 60,
-	}
-
-	c := &client{
-		broker: b,
-		typ:    REMOTE,
-		conn:   conn,
-		route:  route,
-		info:   info,
-	}
-	c.init()
-	b.remotes.Store(cid, c)
-
-	c.SendConnect()
-
-	// mpool := b.messagePool[fnv1a.HashString64(cid)%MessagePoolNum]
-	go c.readLoop()
-	go c.StartPing()
-
-}
-
-func (b *Broker) checkNodeExist(id, url string) bool {
-	if id == b.id {
-		return false
-	}
-
-	for k, v := range b.nodes {
-		if k == id {
-			return true
-		}
-
-		//skip
-		l, ok := v.(string)
-		if ok {
-			if url == l {
-				return true
-			}
-		}
-
-	}
-	return false
-}
-
-// CheckRemoteExist check if remote exist in remoteID
-func (b *Broker) CheckRemoteExist(remoteID, url string) bool {
-	exist := false
-	b.remotes.Range(func(key, value interface{}) bool {
-		v, ok := value.(*client)
-		if ok {
-			if v.route.remoteURL == url {
-				v.route.remoteID = remoteID
-				exist = true
-				return false
-			}
-		}
-		return true
-	})
-	return exist
 }
 
 // SendLocalSubsToRouter send
@@ -604,47 +371,10 @@ func (b *Broker) SendLocalSubsToRouter(c *client) {
 	}
 }
 
-// BroadcastInfoMessage send info
-func (b *Broker) BroadcastInfoMessage(remoteID string, msg *packets.PublishPacket) {
-	b.routes.Range(func(key, value interface{}) bool {
-		r, ok := value.(*client)
-		if ok {
-			if r.route.remoteID == remoteID {
-				return true
-			}
-			r.WriterPacket(msg)
-		}
-		return true
-
-	})
-	// log.Info("BroadcastInfoMessage success ")
-}
-
-// BroadcastSubOrUnsubMessage send info
-func (b *Broker) BroadcastSubOrUnsubMessage(packet packets.ControlPacket) {
-
-	b.routes.Range(func(key, value interface{}) bool {
-		r, ok := value.(*client)
-		if ok {
-			r.WriterPacket(packet)
-		}
-		return true
-	})
-	// log.Info("BroadcastSubscribeMessage remotes: ", s.remotes)
-}
-
 func (b *Broker) removeClient(c *client) {
 	clientID := string(c.info.clientID)
-	typ := c.typ
-	switch typ {
-	case CLIENT:
-		b.clients.Delete(clientID)
-	case ROUTER:
-		b.routes.Delete(clientID)
-	case REMOTE:
-		b.remotes.Delete(clientID)
-	}
-	// log.Info("delete client ,", clientId)
+	b.clients.Delete(clientID)
+	log.Debug("delete client :", zap.String("ClientID", clientID))
 }
 
 // PublishMessage publish message
@@ -667,19 +397,6 @@ func (b *Broker) PublishMessage(packet *packets.PublishPacket) {
 				log.Error("write message error,  ", zap.Error(err))
 			}
 		}
-	}
-}
-
-// BroadcastUnSubscribe send message
-func (b *Broker) BroadcastUnSubscribe(subs map[string]*subscription) {
-
-	unsub := packets.NewControlPacket(packets.Unsubscribe).(*packets.UnsubscribePacket)
-	for topic := range subs {
-		unsub.Topics = append(unsub.Topics, topic)
-	}
-
-	if len(unsub.Topics) > 0 {
-		b.BroadcastSubOrUnsubMessage(unsub)
 	}
 }
 

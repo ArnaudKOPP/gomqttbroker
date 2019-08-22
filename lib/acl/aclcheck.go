@@ -1,10 +1,9 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package acl
 
 import "strings"
 
-func CheckTopicAuth(ACLInfo *ACLConfig, typ int, ip, username, clientid, topic string) bool {
+// CheckTopicAuth check
+func CheckTopicAuth(ACLInfo *Config, typ int, ip, username, clientid, topic string) bool {
 	for _, info := range ACLInfo.Info {
 		ctyp := info.Typ
 		switch ctyp {
@@ -110,8 +109,8 @@ func (a *AuthInfo) checkAuth(typ int) bool {
 }
 
 func pubTopicMatch(pub, des string) bool {
-	dest, _ := SubscribeTopicSpilt(des)
-	topic, _ := PublishTopicSpilt(pub)
+	dest, _ := SubscribeTopicSplit(des)
+	topic, _ := PublishTopicSplit(pub)
 	for i, t := range dest {
 		if i > len(topic)-1 {
 			return false
@@ -130,8 +129,8 @@ func pubTopicMatch(pub, des string) bool {
 }
 
 func subTopicMatch(pub, des string) bool {
-	dest, _ := SubscribeTopicSpilt(des)
-	topic, _ := SubscribeTopicSpilt(pub)
+	dest, _ := SubscribeTopicSplit(des)
+	topic, _ := SubscribeTopicSplit(pub)
 	for i, t := range dest {
 		if i > len(topic)-1 {
 			return false

@@ -16,16 +16,8 @@ import (
 )
 
 const (
-	// BrokerInfoTopic special pub topic for cluster info
-	BrokerInfoTopic = "broker000100101info"
 	// CLIENT is an end user.
 	CLIENT = 0
-	// ROUTER is another router in the cluster.
-	ROUTER = 1
-	//REMOTE is the router connect to other cluster
-	REMOTE = 2
-	// CLUSTER router to cluster
-	CLUSTER = 3
 )
 const (
 	// Connected status
@@ -35,12 +27,10 @@ const (
 )
 
 type client struct {
-	typ        int
 	mu         sync.Mutex
 	broker     *Broker
 	conn       net.Conn
 	info       info
-	route      route
 	status     int
 	ctx        context.Context
 	cancelFunc context.CancelFunc
@@ -67,13 +57,6 @@ type info struct {
 	willMsg   *packets.PublishPacket
 	localIP   string
 	remoteIP  string
-}
-
-type route struct {
-	// remoteID id of remote
-	remoteID string
-	// remoteURL url of remote
-	remoteURL string
 }
 
 var (
@@ -184,10 +167,6 @@ func (c *client) ProcessPublish(packet *packets.PublishPacket) {
 	}
 
 	topic := packet.TopicName
-	if topic == BrokerInfoTopic && c.typ == CLUSTER {
-		c.ProcessInfo(packet)
-		return
-	}
 
 	if !c.CheckTopicAuth(PUB, topic) {
 		log.Error("Pub Topics Auth failed, ", zap.String("topic", topic), zap.String("ClientID", c.info.clientID))
@@ -220,7 +199,6 @@ func (c *client) ProcessPublishMessage(packet *packets.PublishPacket) {
 	if b == nil {
 		return
 	}
-	typ := c.typ
 
 	if packet.Retain {
 		if err := c.topicsMgr.Retain(packet); err != nil {
@@ -244,19 +222,12 @@ func (c *client) ProcessPublishMessage(packet *packets.PublishPacket) {
 	for _, sub := range c.subs {
 		s, ok := sub.(*subscription)
 		if ok {
-			if s.client.typ == ROUTER {
-				if typ != CLIENT {
-					continue
-				}
-			}
 			err := s.client.WriterPacket(packet)
 			if err != nil {
 				log.Error("process message for psub error,  ", zap.Error(err), zap.String("ClientID", c.info.clientID))
 			}
 		}
-
 	}
-
 }
 
 func (c *client) ProcessSubscribe(packet *packets.SubscribePacket) {
@@ -309,10 +280,6 @@ func (c *client) ProcessSubscribe(packet *packets.SubscribePacket) {
 		log.Error("send suback error, ", zap.Error(err), zap.String("ClientID", c.info.clientID))
 		return
 	}
-	//broadcast subscribe message
-	if c.typ == CLIENT {
-		go b.BroadcastSubOrUnsubMessage(packet)
-	}
 
 	//process retain message
 	for _, rm := range c.rmsgs {
@@ -352,10 +319,6 @@ func (c *client) ProcessUnSubscribe(packet *packets.UnsubscribePacket) {
 		log.Error("send unsuback error, ", zap.Error(err), zap.String("ClientID", c.info.clientID))
 		return
 	}
-	// //process ubsubscribe message
-	if c.typ == CLIENT {
-		b.BroadcastSubOrUnsubMessage(packet)
-	}
 }
 
 func (c *client) ProcessPing() {
@@ -388,27 +351,13 @@ func (c *client) Close() {
 	}
 
 	b := c.broker
-	subs := c.subMap
 	if b != nil {
 		b.removeClient(c)
 
-		if c.typ == CLIENT {
-			b.BroadcastUnSubscribe(subs)
-			//offline notification
-			b.OnlineOfflineNotification(c.info.clientID, false)
-		}
+		b.OnlineOfflineNotification(c.info.clientID, false)
 
 		if c.info.willMsg != nil {
 			b.PublishMessage(c.info.willMsg)
-		}
-
-		if c.typ == CLUSTER {
-			b.ConnectToDiscovery()
-		}
-
-		//do reconnect
-		if c.typ == REMOTE {
-			go b.connectRouter(c.route.remoteID, c.route.remoteURL)
 		}
 	}
 }

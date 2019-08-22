@@ -1,5 +1,3 @@
-/* Copyright (c) 2019, Arnaud KOPP
- */
 package acl
 
 import (
@@ -12,16 +10,25 @@ import (
 )
 
 const (
-	PUB      = 1
-	SUB      = 2
-	PUBSUB   = 3
+	// PUB publish fct
+	PUB = 1
+	// SUB subscribe fct
+	SUB = 2
+	// PUBSUB publish & sub fct
+	PUBSUB = 3
+	// CLIENTID client id name
 	CLIENTID = "clientid"
+	// USERNAME username name
 	USERNAME = "username"
-	IP       = "ip"
-	ALLOW    = "allow"
-	DENY     = "deny"
+	// IP ip name
+	IP = "ip"
+	// ALLOW name
+	ALLOW = "allow"
+	// DENY name
+	DENY = "deny"
 )
 
+// AuthInfo struct for auth info
 type AuthInfo struct {
 	Auth   string
 	Typ    string
@@ -30,27 +37,30 @@ type AuthInfo struct {
 	Topics []string
 }
 
-type ACLConfig struct {
+// Config struct for ACL config
+type Config struct {
 	File string
 	Info []*AuthInfo
 }
 
-func AclConfigLoad(file string) (*ACLConfig, error) {
+// ConfigLoad load ACL config
+func ConfigLoad(file string) (*Config, error) {
 	if file == "" {
 		file = "./conf/acl.conf"
 	}
-	aclconifg := &ACLConfig{
+	aclconifg := &Config{
 		File: file,
 		Info: make([]*AuthInfo, 0, 4),
 	}
-	err := aclconifg.Prase()
+	err := aclconifg.Parse()
 	if err != nil {
 		return nil, err
 	}
 	return aclconifg, err
 }
 
-func (c *ACLConfig) Prase() error {
+// Parse parse ACL config file
+func (c *Config) Parse() error {
 	f, err := os.Open(c.File)
 	defer f.Close()
 	if err != nil {
@@ -110,7 +120,6 @@ func (c *ACLConfig) Prase() error {
 func isCommentOut(line string) bool {
 	if strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "//") || strings.HasPrefix(line, "*") {
 		return true
-	} else {
-		return false
 	}
+	return false
 }

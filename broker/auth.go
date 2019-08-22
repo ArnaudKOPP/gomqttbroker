@@ -16,7 +16,7 @@ const (
 )
 
 func (c *client) CheckTopicAuth(typ int, topic string) bool {
-	if c.typ != CLIENT || !c.broker.config.ACL {
+	if !c.broker.config.ACL {
 		return true
 	}
 	if strings.HasPrefix(topic, "$queue/") {
@@ -43,7 +43,7 @@ func (b *Broker) handleFsEvent(event fsnotify.Event) error {
 		if event.Op&fsnotify.Write == fsnotify.Write ||
 			event.Op&fsnotify.Create == fsnotify.Create {
 			log.Info("text:handling acl config change event:", zap.String("filename", event.Name))
-			aclconfig, err := acl.AclConfigLoad(event.Name)
+			aclconfig, err := acl.ConfigLoad(event.Name)
 			if err != nil {
 				log.Error("aclconfig change failed, load acl conf error: ", zap.Error(err))
 				return err
