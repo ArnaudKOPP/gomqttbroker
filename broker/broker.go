@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof" // because i want it
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"../lib/topics"
 	"../pool"
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/zap"
 	"golang.org/x/net/websocket"
 )
@@ -99,7 +97,6 @@ func NewBroker(config *Config) (*Broker, error) {
 			return nil, err
 		}
 		b.ACLConfig = aclconfig
-		b.StartACLWatcher()
 	}
 	return b, nil
 }
@@ -138,9 +135,6 @@ func (b *Broker) Start() {
 		go b.StartClientListening(true)
 	}
 
-	//system monitor
-	go StateMonitor()
-
 	if b.config.Debug {
 		startPProf()
 	}
@@ -152,20 +146,6 @@ func startPProf() {
 		log.Debug("Start PProf at : http://localhost:6060/debug/pprof/ ")
 		http.ListenAndServe(":6060", nil)
 	}()
-}
-
-// StateMonitor monitor
-func StateMonitor() {
-	v, _ := mem.VirtualMemory()
-	timeSticker := time.NewTicker(time.Second * 30)
-	for {
-		select {
-		case <-timeSticker.C:
-			if v.UsedPercent > 75 {
-				debug.FreeOSMemory()
-			}
-		}
-	}
 }
 
 // StartWebsocketListening Start ws
