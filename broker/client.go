@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -64,15 +63,17 @@ var (
 	DisconnectdPacket = packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
 )
 
+// init initiate a new client
 func (c *client) init() {
 	c.status = Connected
-	c.info.localIP = strings.Split(c.conn.LocalAddr().String(), ":")[0]
-	c.info.remoteIP = strings.Split(c.conn.RemoteAddr().String(), ":")[0]
+	c.info.localIP, _, _ = net.SplitHostPort(c.conn.LocalAddr().String())
+	c.info.remoteIP, _, _ = net.SplitHostPort(c.conn.RemoteAddr().String())
 	c.ctx, c.cancelFunc = context.WithCancel(context.Background())
 	c.subMap = make(map[string]*subscription)
 	c.topicsMgr = c.broker.topicsMgr
 }
 
+//readLoop read all incoming message
 func (c *client) readLoop() {
 	nc := c.conn
 	b := c.broker
@@ -91,6 +92,8 @@ func (c *client) readLoop() {
 			//add read timeout
 			if err := nc.SetReadDeadline(time.Now().Add(timeOut)); err != nil {
 				log.Error("set read timeout error: ", zap.Error(err), zap.String("ClientID", c.info.clientID))
+				msg := &Message{client: c, packet: DisconnectdPacket}
+				b.SubmitWork(c.info.clientID, msg)
 				return
 			}
 
@@ -101,7 +104,7 @@ func (c *client) readLoop() {
 					return
 				}
 
-				log.Error("read packet error: ", zap.Error(err), zap.String("ClientID", c.info.clientID))
+				log.Error("Read packet error: ", zap.Error(err), zap.String("ClientID", c.info.clientID))
 				msg := &Message{client: c, packet: DisconnectdPacket}
 				b.SubmitWork(c.info.clientID, msg)
 
@@ -125,7 +128,7 @@ func (c *client) readLoop() {
 
 }
 
-// ProcessMessage process a message
+// ProcessMessage process a received message
 func ProcessMessage(msg *Message) {
 	c := msg.client
 	ca := msg.packet
@@ -165,7 +168,7 @@ func (c *client) ProcessPublish(packet *packets.PublishPacket) {
 	if c.status == Disconnected {
 		return
 	}
-
+	log.Debug("Recv publich message: ", zap.String("Content", string(packet.Payload)))
 	topic := packet.TopicName
 
 	if !c.CheckTopicAuth(PUB, topic) {
@@ -286,7 +289,7 @@ func (c *client) ProcessSubscribe(packet *packets.SubscribePacket) {
 		if err := c.WriterPacket(rm); err != nil {
 			log.Error("Error publishing retained message:", zap.Any("err", err), zap.String("ClientID", c.info.clientID))
 		} else {
-			log.Info("process retain  message: ", zap.Any("packet", packet), zap.String("ClientID", c.info.clientID))
+			log.Info("process retain message: ", zap.Any("packet", packet), zap.String("ClientID", c.info.clientID))
 		}
 	}
 }

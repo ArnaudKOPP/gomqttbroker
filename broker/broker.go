@@ -98,6 +98,7 @@ func NewBroker(config *Config) (*Broker, error) {
 		}
 		b.ACLConfig = aclconfig
 	}
+	log.Info("Created succesfully Broker")
 	return b, nil
 }
 
@@ -113,10 +114,10 @@ func (b *Broker) SubmitWork(clientID string, msg *Message) {
 
 }
 
-// Start start broker
+// Start start all listener from broker
 func (b *Broker) Start() {
 	if b == nil {
-		log.Error("broker is null")
+		log.Error("Broker is null")
 		return
 	}
 
@@ -143,7 +144,7 @@ func (b *Broker) Start() {
 
 func startPProf() {
 	go func() {
-		log.Debug("Start PProf at : http://localhost:6060/debug/pprof/ ")
+		log.Info("Start PProf at : http://localhost:6060/debug/pprof/ ")
 		http.ListenAndServe(":6060", nil)
 	}()
 }
@@ -152,7 +153,7 @@ func startPProf() {
 func (b *Broker) StartWebsocketListening() {
 	path := b.config.WsPath
 	hp := ":" + b.config.WsPort
-	log.Info("Start Websocket Listener on:", zap.String("hp", hp), zap.String("path", path))
+	log.Info("Start Websocket Listener on:", zap.String("HostPort", hp), zap.String("Path", path))
 	http.Handle(path, websocket.Handler(b.wsHandler))
 	var err error
 	if b.config.WsTLS {
@@ -175,6 +176,7 @@ func (b *Broker) wsHandler(ws *websocket.Conn) {
 }
 
 // StartClientListening start listening client
+// Start a TCP listener & TLS TCP listener, on port specified by config
 func (b *Broker) StartClientListening(TLS bool) {
 	var hp string
 	var err error
@@ -182,11 +184,11 @@ func (b *Broker) StartClientListening(TLS bool) {
 	if TLS {
 		hp = b.config.TLSHost + ":" + b.config.TLSPort
 		l, err = tls.Listen("tcp", hp, b.tlsConfig)
-		log.Info("Start TLS Listening client on ", zap.String("hp", hp))
+		log.Info("Start TLS Listening client on ", zap.String("HostPort", hp))
 	} else {
 		hp := b.config.Host + ":" + b.config.Port
 		l, err = net.Listen("tcp", hp)
-		log.Info("Start Listening client on ", zap.String("hp", hp))
+		log.Info("Start Listening client on ", zap.String("HostPort", hp))
 	}
 	if err != nil {
 		log.Error("Error listening on ", zap.Error(err))
@@ -216,62 +218,33 @@ func (b *Broker) StartClientListening(TLS bool) {
 	}
 }
 
-// Handshake make handshake in TLS
-func (b *Broker) Handshake(conn net.Conn) bool {
-
-	nc := tls.Server(conn, b.tlsConfig)
-	time.AfterFunc(DefaultTLSTimeout, func() { TLSTimeout(nc) })
-	nc.SetReadDeadline(time.Now().Add(DefaultTLSTimeout))
-
-	// Force handshake
-	if err := nc.Handshake(); err != nil {
-		log.Error("TLS handshake error, ", zap.Error(err))
-		return false
-	}
-	nc.SetReadDeadline(time.Time{})
-	return true
-
-}
-
-// TLSTimeout check timeout
-func TLSTimeout(conn *tls.Conn) {
-	nc := conn
-	// Check if already closed
-	if nc == nil {
-		return
-	}
-	cs := nc.ConnectionState()
-	if !cs.HandshakeComplete {
-		log.Error("TLS handshake timeout")
-		nc.Close()
-	}
-}
-
+// handleConnection This function handle client connection, create a new client, and let this
+// client handle all stuff from reading packet and etc
 func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	//process connect packet
 	packet, err := packets.ReadPacket(conn)
 	if err != nil {
-		log.Error("read connect packet error: ", zap.Error(err))
+		log.Error("Read packet error: ", zap.Error(err))
 		return
 	}
 	if packet == nil {
-		log.Error("received nil packet")
+		log.Error("Received null packet")
 		return
 	}
 	msg, ok := packet.(*packets.ConnectPacket)
 	if !ok {
-		log.Error("received msg that was not Connect")
+		log.Error("Received msg that was not Connect")
 		return
 	}
 
-	log.Info("reconnect connect from ", zap.String("clientID", msg.ClientIdentifier))
+	log.Info("Connection from ", zap.String("clientID", msg.ClientIdentifier), zap.String("Addr", conn.RemoteAddr().String()))
 
 	connack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 	connack.ReturnCode = packets.Accepted
 	connack.SessionPresent = msg.CleanSession
 	err = connack.Write(conn)
 	if err != nil {
-		log.Error("send connack error, ", zap.Error(err), zap.String("clientID", msg.ClientIdentifier))
+		log.Error("Send connack error, ", zap.Error(err), zap.String("clientID", msg.ClientIdentifier))
 		return
 	}
 
@@ -303,7 +276,7 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 
 	err = b.getSession(c, msg, connack)
 	if err != nil {
-		log.Error("get session error: ", zap.String("clientID", c.info.clientID))
+		log.Error("Get session error: ", zap.String("clientID", c.info.clientID))
 		return
 	}
 
@@ -314,7 +287,7 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 
 	old, exist = b.clients.Load(cid)
 	if exist {
-		log.Warn("client exist, close old...", zap.String("clientID", c.info.clientID))
+		log.Warn("Client exist, close old...", zap.String("clientID", c.info.clientID))
 		ol, ok := old.(*client)
 		if ok {
 			ol.Close()
@@ -329,32 +302,10 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 	c.readLoop()
 }
 
-// SendLocalSubsToRouter send
-func (b *Broker) SendLocalSubsToRouter(c *client) {
-	subInfo := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
-	b.clients.Range(func(key, value interface{}) bool {
-		client, ok := value.(*client)
-		if ok {
-			subs := client.subMap
-			for _, sub := range subs {
-				subInfo.Topics = append(subInfo.Topics, sub.topic)
-				subInfo.Qoss = append(subInfo.Qoss, sub.qos)
-			}
-		}
-		return true
-	})
-	if len(subInfo.Topics) > 0 {
-		err := c.WriterPacket(subInfo)
-		if err != nil {
-			log.Error("Send localsubs To Router error :", zap.Error(err))
-		}
-	}
-}
-
 func (b *Broker) removeClient(c *client) {
 	clientID := string(c.info.clientID)
 	b.clients.Delete(clientID)
-	log.Debug("delete client :", zap.String("ClientID", clientID))
+	log.Info("Relete client :", zap.String("ClientID", clientID))
 }
 
 // PublishMessage publish message
@@ -365,7 +316,7 @@ func (b *Broker) PublishMessage(packet *packets.PublishPacket) {
 	err := b.topicsMgr.Subscribers([]byte(packet.TopicName), packet.Qos, &subs, &qoss)
 	b.mu.Unlock()
 	if err != nil {
-		log.Error("search sub client error,  ", zap.Error(err))
+		log.Error("Search sub client error,  ", zap.Error(err))
 		return
 	}
 
@@ -374,7 +325,7 @@ func (b *Broker) PublishMessage(packet *packets.PublishPacket) {
 		if ok {
 			err := s.client.WriterPacket(packet)
 			if err != nil {
-				log.Error("write message error,  ", zap.Error(err))
+				log.Error("Write message error,  ", zap.Error(err))
 			}
 		}
 	}

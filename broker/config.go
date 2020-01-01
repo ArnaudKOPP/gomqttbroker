@@ -19,7 +19,6 @@ type Config struct {
 	Worker  int     `json:"workerNum"`
 	Host    string  `json:"host"`
 	Port    string  `json:"port"`
-	Router  string  `json:"router"`
 	TLSHost string  `json:"tlsHost"`
 	TLSPort string  `json:"tlsPort"`
 	WsPath  string  `json:"wsPath"`
@@ -73,12 +72,10 @@ func ConfigureConfig(args []string) (*Config, error) {
 	fs.StringVar(&config.Port, "port", "1883", "Port to listen on.")
 	fs.StringVar(&config.Port, "p", "1883", "Port to listen on.")
 	fs.StringVar(&config.Host, "host", "0.0.0.0", "Network host to listen on")
-	fs.StringVar(&config.Router, "r", "", "Router who maintenance cluster info")
-	fs.StringVar(&config.Router, "router", "", "Router who maintenance cluster info")
-	fs.StringVar(&config.WsPort, "ws", "", "port for ws to listen on")
-	fs.StringVar(&config.WsPort, "wsport", "", "port for ws to listen on")
-	fs.StringVar(&config.WsPath, "wsp", "", "path for ws to listen on")
-	fs.StringVar(&config.WsPath, "wspath", "", "path for ws to listen on")
+	fs.StringVar(&config.WsPort, "ws", "1888", "port for ws to listen on")
+	fs.StringVar(&config.WsPort, "wsport", "1888", "port for ws to listen on")
+	fs.StringVar(&config.WsPath, "wsp", "/ws", "path for ws to listen on")
+	fs.StringVar(&config.WsPath, "wspath", "/ws", "path for ws to listen on")
 	fs.StringVar(&configFile, "config", "", "config file for broker")
 	fs.StringVar(&configFile, "c", "", "config file for broker")
 	fs.BoolVar(&config.Debug, "debug", false, "enable Debug logging.")
