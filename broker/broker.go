@@ -305,7 +305,7 @@ func (b *Broker) handleConnection(typ int, conn net.Conn) {
 func (b *Broker) removeClient(c *client) {
 	clientID := string(c.info.clientID)
 	b.clients.Delete(clientID)
-	log.Info("Relete client :", zap.String("ClientID", clientID))
+	log.Info("Delete client :", zap.String("ClientID", clientID))
 }
 
 // PublishMessage publish message
