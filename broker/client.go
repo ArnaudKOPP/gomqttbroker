@@ -118,6 +118,11 @@ func (c *client) readLoop() {
 				return
 			}
 
+			if _, isDisconnect := packet.(*packets.DisconnectPacket); isDisconnect {
+				c.info.willMsg = nil
+				c.cancelFunc()
+			}
+
 			msg := &Message{
 				client: c,
 				packet: packet,
